@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconstruir para Ensinar</title>
+<meta name="description" content="Jogo de decisões: administre R$ 220 mil para recuperar uma escola pública atingida pelas enchentes no RS.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Source+Serif+4:opsz,wght@8..60,400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --concreto:#E4E9E7;
+  --papel:#FBFCFB;
+  --tinta:#1E2A30;
+  --tinta-2:#4B5B62;
+  --linha:#C3CCC9;
+  --barro:#8A6B43;
+  --barro-escuro:#5E4729;
+  --obra:#F2B705;
+  --obra-claro:#FFF4CF;
+  --bom:#2C7549;
+  --ruim:#B0372B;
+  --nivel:24vh;
+  --titulo:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --texto:"Source Serif 4",Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--concreto);color:var(--tinta);font-family:var(--texto);font-size:1.0625rem;line-height:1.65}
+h1,h2,h3,legend,.btn,.hud,.letra,.chip,table th{font-family:var(--titulo)}
+h1{font-size:clamp(2.1rem,7vw,3.4rem);line-height:1.02;font-weight:800;font-stretch:118%;letter-spacing:-.01em;margin:.2em 0 .35em}
+h2{font-size:clamp(1.45rem,4.6vw,1.9rem);line-height:1.15;font-weight:750;font-stretch:108%;margin:.1em 0 .6em}
+h3{font-size:1.1rem;font-weight:700;margin:1.6em 0 .4em}
+p{margin:0 0 .9em}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--obra);outline-offset:2px}
+
+/* A água: baixa a cada pergunta respondida */
+#agua{position:fixed;left:0;right:0;bottom:0;height:var(--nivel);background:linear-gradient(var(--barro),var(--barro-escuro));z-index:0;pointer-events:none;transition:height 1.4s ease}
+#agua::before{content:"";position:absolute;top:-15px;left:0;width:calc(100% + 120px);height:16px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='16' viewBox='0 0 120 16'%3E%3Cpath d='M0 9 Q30 1 60 9 T120 9 V16 H0Z' fill='%238A6B43'/%3E%3C/svg%3E") repeat-x;
+  background-size:120px 16px;animation:onda 10s linear infinite}
+@keyframes onda{to{transform:translateX(-120px)}}
+
+/* Painel fixo com saldo e indicadores */
+.hud{position:sticky;top:0;z-index:5;background:var(--tinta);color:#F3F6F5}
+.hud[hidden]{display:none}
+.hud-in{max-width:48rem;margin:0 auto;padding:.6rem 1rem .55rem;display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.4rem;align-items:center}
+.saldo{display:flex;flex-direction:column;line-height:1.1}
+.saldo span{font-size:.78rem;color:#B9C6C2}
+.saldo strong{font-size:1.45rem;font-weight:800;font-stretch:112%;font-variant-numeric:tabular-nums}
+.inds{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem .9rem}
+.ind{font-size:.74rem;line-height:1.2;color:#B9C6C2}
+.ind b{display:block;color:#fff;font-size:1rem;font-variant-numeric:tabular-nums}
+.barra{position:relative;display:block;height:4px;background:#3A4950;margin-top:3px;border-radius:2px}
+.barra::after{content:"";position:absolute;left:50%;top:-2px;width:1px;height:8px;background:#8FA09A}
+.barra i{position:absolute;top:0;height:4px;border-radius:2px}
+.progresso{grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.progresso i{height:3px;background:#3A4950;border-radius:2px}
+.progresso i.ok{background:var(--obra)}
+.marcas{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.35rem}
+.marcas:empty{display:none}
+.chip{display:inline-block;font-size:.76rem;font-weight:600;padding:.12rem .55rem;border-radius:999px;background:var(--obra);color:var(--tinta);cursor:help}
+@media (max-width:560px){
+  .hud-in{grid-template-columns:1fr}
+  .inds{grid-template-columns:repeat(4,1fr);gap:.3rem .6rem}
+  .ind{font-size:.68rem}
+}
+
+main{position:relative;z-index:1;max-width:46rem;margin:0 auto;padding:1.6rem 1rem calc(var(--nivel) + 4rem)}
+.folha{background:var(--papel);border:1px solid var(--linha);border-radius:4px;padding:1.5rem 1.4rem}
+@media (max-width:560px){.folha{padding:1.2rem 1rem}}
+.sub{color:var(--tinta-2);font-family:var(--titulo);font-size:.95rem;font-weight:600;margin:0}
+
+/* Abertura */
+.fachada{display:block;width:100%;height:auto;margin:.4rem 0 1.2rem;border-radius:4px;background:#D9E3E6}
+table{border-collapse:collapse;width:100%;font-size:.95rem;margin:.4rem 0 1rem}
+th,td{text-align:left;padding:.42rem .5rem;border-bottom:1px solid var(--linha);vertical-align:top}
+th{font-size:.82rem;font-weight:700;color:var(--tinta-2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:700;border-bottom:2px solid var(--tinta)}
+.campos{display:grid;gap:.8rem;margin:1.2rem 0}
+.campos label{display:block;font-family:var(--titulo);font-weight:650;font-size:.92rem;margin-bottom:.25rem}
+input[type=text],textarea{width:100%;font:inherit;font-size:1rem;padding:.6rem .7rem;border:2px solid var(--tinta-2);border-radius:4px;background:#fff;color:var(--tinta)}
+textarea{resize:vertical;min-height:5.2rem}
+
+.btn{display:inline-block;font-size:1rem;font-weight:700;font-stretch:105%;padding:.75rem 1.3rem;border:2px solid var(--tinta);border-radius:4px;background:var(--obra);color:var(--tinta);box-shadow:3px 3px 0 var(--tinta);cursor:pointer}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--tinta)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--tinta)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 var(--tinta)}
+.btn.sec{background:var(--papel)}
+.acoes{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;margin-top:1.3rem}
+
+/* Pergunta */
+.contexto{font-size:1.06rem}
+.situacao{margin:1.2rem 0;padding:.9rem 1rem .5rem 1.4rem;background:var(--obra-claro);position:relative;border-radius:0 4px 4px 0}
+.situacao::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;background:repeating-linear-gradient(-45deg,var(--obra) 0 7px,var(--tinta) 7px 14px)}
+.situacao h3{margin:0 0 .4rem;font-size:.98rem}
+.situacao ul{margin:0 0 .5rem;padding-left:1.1rem}
+.situacao li{margin-bottom:.35rem}
+fieldset{border:0;margin:1.4rem 0 0;padding:0}
+legend{font-size:1.18rem;font-weight:750;margin-bottom:.7rem;padding:0}
+.opcao{display:grid;grid-template-columns:2.4rem 1fr;gap:.8rem;align-items:start;padding:.9rem .95rem;margin-bottom:.7rem;background:#fff;border:2px solid var(--linha);border-radius:4px;cursor:pointer}
+.opcao:hover{border-color:var(--tinta-2)}
+.opcao input{position:absolute;opacity:0;pointer-events:none}
+.opcao .letra{display:grid;place-items:center;width:2.4rem;height:2.4rem;border:2px solid var(--tinta);border-radius:4px;font-weight:800;font-size:1.1rem;background:var(--papel)}
+.opcao strong{display:block;font-family:var(--titulo);font-size:1.05rem;font-weight:700;margin-bottom:.15rem}
+.opcao .desc{display:block;font-size:.98rem;line-height:1.55}
+.opcao:has(input:checked){border-color:var(--tinta);background:var(--obra-claro);box-shadow:3px 3px 0 var(--tinta)}
+.opcao:has(input:checked) .letra{background:var(--obra)}
+.opcao:has(input:focus-visible){outline:3px solid var(--obra);outline-offset:2px}
+.opcao.bloq{cursor:not-allowed;opacity:.6;background:#F1F3F2}
+.opcao.bloq:hover{border-color:var(--linha)}
+.motivo{display:block;margin-top:.4rem;font-style:italic;color:var(--ruim);font-size:.92rem}
+.just{margin-top:1.2rem}
+.just label{display:block;font-family:var(--titulo);font-weight:700;margin-bottom:.35rem}
+.dica{font-size:.9rem;color:var(--tinta-2);margin:.5rem 0 0}
+
+/* Resultado */
+.efeitos{list-style:none;padding:0;margin:1rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:.55rem}
+.efeitos li{background:#fff;border:1px solid var(--linha);border-radius:4px;padding:.55rem .7rem;font-family:var(--titulo);font-size:.85rem;color:var(--tinta-2)}
+.efeitos li b{display:block;font-size:1.15rem;font-variant-numeric:tabular-nums}
+.pos{color:var(--bom)}
+.neg{color:var(--ruim)}
+.novos{margin:1rem 0}
+.novos p{margin:.3rem 0}
+.reflexao{border-left:4px solid var(--tinta);padding:.2rem 0 .2rem 1rem;margin:1.2rem 0;font-style:italic}
+
+/* Final */
+.selo{display:inline-block;font-family:var(--titulo);font-weight:700;font-size:.9rem;padding:.2rem .7rem;border:2px solid var(--tinta);border-radius:4px;background:var(--obra)}
+.selo.mau{background:var(--ruim);color:#fff;border-color:var(--ruim)}
+.trajeto{padding-left:1.2rem}
+.trajeto li{margin-bottom:.9rem}
+.trajeto blockquote{margin:.25rem 0 0;padding-left:.8rem;border-left:3px solid var(--linha);color:var(--tinta-2);font-size:.96rem}
+.retomar{background:var(--obra-claro);border:2px solid var(--tinta);border-radius:4px;padding:.9rem 1rem;margin:0 0 1.2rem}
+.retomar p{margin:0 0 .6rem}
+
+@media (prefers-reduced-motion:reduce){
+  #agua{transition:none}
+  #agua::before{animation:none}
+  .btn:hover,.btn:active{transform:none}
+}
+@media print{
+  #agua,.hud,.acoes{display:none!important}
+  body{background:#fff}
+  main{padding:0;max-width:none}
+  .folha{border:0;padding:0}
+}
+</style>
+</head>
+<body>
+<div id="agua" aria-hidden="true"></div>
+<header class="hud" id="hud" hidden>
+  <div class="hud-in">
+    <div class="saldo"><span>Saldo disponível</span><strong id="hud-saldo">R$ 220.000</strong></div>
+    <div class="inds" id="hud-inds"></div>
+    <div class="progresso" id="hud-prog" aria-hidden="true"></div>
+    <div class="marcas" id="hud-marcas"></div>
+  </div>
+</header>
+<main id="app" tabindex="-1"></main>
+
+<!-- ===================== MOTOR DO JOGO (regras) ===================== -->
+<script id="motor">
+(function (raiz) {
+  "use strict";
+  const M = {};
+
+  M.VERBA = 220000;
+
+  M.MARCADORES = {
+    TELHADO:    { nome: "Telhado provisório",      desc: "A lona pode não aguentar a próxima chuva forte." },
+    APOIO:      { nome: "Apoio da comunidade",     desc: "Pais e voluntários se engajaram e ajudam nas próximas etapas." },
+    RUBRICAS:   { nome: "Rubricas travadas",       desc: "Mover dinheiro entre áreas exige aprovação do Conselho Escolar (+20 dias)." },
+    CONTRATO:   { nome: "Contrato emergencial",    desc: "A urgência e a pesquisa de preços terão de ser comprovadas na prestação de contas." },
+    ATRASO:     { nome: "Atraso na obra",          desc: "A licitação demorou, mas existe um contrato formal que aceita aditivos." },
+    FORNECEDOR: { nome: "Fornecedor local",        desc: "Empresa do bairro, com pouca folga financeira." },
+    SEMRT:      { nome: "Sem responsável técnico", desc: "Obra feita sem ART: risco técnico e legal." },
+    AREA:       { nome: "Área interditada",        desc: "Duas salas do bloco B estão fechadas até o reforço estrutural." },
+    DESPESA:    { nome: "Despesa a justificar",    desc: "R$ 30.000 gastos fora da finalidade do repasse, sem autorização prévia." },
+    PARADO:     { nome: "Saldo parado",            desc: "Dinheiro público sem uso no fim do prazo." }
+  };
+
+  M.INDICADORES = [
+    ["inf", "Infraestrutura"],
+    ["apr", "Aprendizagem"],
+    ["com", "Comunidade"],
+    ["conf", "Conformidade"]
+  ];
+
+  const brl = v => "R$\u00a0" + Math.round(Math.abs(v)).toLocaleString("pt-BR");
+  M.brl = v => (v < 0 ? "−" : "") + brl(v);
+  const tem = (s, m) => s.marcadores.includes(m);
+  const ganha = (s, m) => { if (!tem(s, m)) s.marcadores.push(m); };
+  const perde = (s, m) => { s.marcadores = s.marcadores.filter(x => x !== m); };
+  const ind = (s, o) => { for (const k in o) s[k] += o[k]; };
+  const falta = (custo, saldo) => saldo >= custo ? null : "Saldo insuficiente: faltam " + brl(custo - saldo) + ".";
+  M.tem = tem;
+
+  M.novoEstado = (grupo, membros) => ({
+    versao: 1, grupo: grupo || "", membros: membros || "",
+    fase: "pergunta", qi: 0,
+    saldo: M.VERBA, inf: 0, apr: 0, com: 0, conf: 0,
+    comprometido: 0, p1: null, marcadores: [], semRtCorrigido: false,
+    historico: []
+  });
+
+  /* ---------- Regras auxiliares ---------- */
+  const custoImprevisto = s => 28000 + (tem(s, "TELHADO") ? 12000 : 0) + (tem(s, "SEMRT") ? 15000 : 0);
+  const bonusP4 = s => s.p1 === "B" ? 1 : 0;
+  const reforcoAuto = s => tem(s, "AREA") && s.saldo >= 28000;
+  const areaPendente = s => tem(s, "AREA") && s.saldo < 28000;
+  const saldoP6 = s => reforcoAuto(s) ? s.saldo - 28000 : s.saldo;
+  const custoAdaptacao = s => 25000 + (tem(s, "SEMRT") ? 5000 : 0);
+  const verificaParado = s => {
+    if (s.saldo > 15000) { ganha(s, "PARADO"); return ["Sobraram " + brl(s.saldo) + " sem destino no fim do prazo. Dinheiro público parado é sinal de planejamento falho: o grupo ganhou o marcador Saldo parado."]; }
+    return [];
+  };
+  M.pendencias = s => {
+    const leves = [], graves = [];
+    if (tem(s, "CONTRATO")) leves.push("Contrato emergencial: onde estão a justificativa da urgência e os 3 orçamentos?");
+    if (tem(s, "FORNECEDOR")) leves.push("Fornecedor local: a empresa tinha capacidade técnica? O atraso foi multado?");
+    if (tem(s, "PARADO")) leves.push("Saldo parado: por que havia dinheiro sem uso no fim do prazo?");
+    if (tem(s, "SEMRT")) (s.semRtCorrigido ? leves : graves).push("Sem responsável técnico: quem responde tecnicamente pela obra feita sem ART?");
+    if (tem(s, "DESPESA")) graves.push("Despesa a justificar: por que R$ 30.000 foram gastos fora da finalidade do repasse, sem autorização?");
+    return { leves, graves };
+  };
+
+  /* ---------- As 7 perguntas ---------- */
+  M.PERGUNTAS = [
+    /* ===== P1 ===== */
+    {
+      titulo: "Onde colocar o dinheiro primeiro?",
+      contexto: [
+        "A verba cobre só 80% do laudo de danos. As famílias pressionam pela volta das aulas: muitas crianças dependem da merenda, e o ginásio emprestado só está disponível por mais 2 meses.",
+        "O engenheiro da Secretaria alerta que reabrir com a rede elétrica danificada é proibido e que o telhado ainda deixa entrar água em dias de chuva. A Direção precisa definir a estratégia de prioridade antes de qualquer contratação."
+      ],
+      notas: () => [],
+      pergunta: "Qual estratégia a equipe gestora adota?",
+      opcoes: [
+        { letra: "A", titulo: "Segurança primeiro",
+          texto: "Recuperar toda a estrutura do prédio: rede elétrica, telhado, paredes e pisos (R$ 135.000). Os alunos só voltam quando o prédio estiver 100% seguro, em cerca de 4 meses.",
+          aplicar: s => { s.p1 = "A"; s.comprometido = 135000; s.saldo -= 135000; ind(s, { inf: 3, apr: -1, conf: 1 });
+            return ["A estrutura será recuperada por completo, mas os alunos seguem no ginásio por mais 4 meses. Algumas famílias reclamam da demora."]; } },
+        { letra: "B", titulo: "Reabrir o mais rápido possível",
+          texto: "Fazer a rede elétrica, comprar mobiliário e reequipar a cozinha. O telhado recebe só uma solução provisória com lonas e calhas (total de R$ 106.000). Reabertura em 6 semanas.",
+          aplicar: s => { s.p1 = "B"; s.comprometido = 106000; s.saldo -= 106000; ind(s, { inf: 1, apr: 2, com: 1 }); ganha(s, "TELHADO");
+            return ["As aulas voltam em 6 semanas e a merenda é retomada. O telhado, porém, depende de uma lona."]; } },
+        { letra: "C", titulo: "Decisão participativa",
+          texto: "Convocar Conselho Escolar, Círculo de Pais e Mestres, professores e grêmio para definir as prioridades em assembleia (3 semanas). A comunidade escolhe rede elétrica, telhado e cozinha (R$ 113.000). Reabertura em cerca de 3 meses.",
+          aplicar: s => { s.p1 = "C"; s.comprometido = 113000; s.saldo -= 113000; ind(s, { inf: 2, com: 3, conf: 1 }); ganha(s, "APOIO");
+            return ["As assembleias atrasaram o início em 3 semanas, mas a comunidade sente que a escola é dela. A ata do Conselho dá respaldo às decisões."]; } },
+        { letra: "D", titulo: "Orçamento por percentuais fixos",
+          texto: "Dividir toda a verba em rubricas: 50% infraestrutura, 30% pedagógico (mobiliário, biblioteca e material), 10% alimentação e 10% reserva técnica (R$ 22.000). O laboratório de informática fica de fora. Reabertura em cerca de 3 meses.",
+          aplicar: s => { s.p1 = "D"; s.comprometido = 198000; s.saldo -= 198000; ind(s, { inf: 1, apr: 1, com: 1, conf: 2 }); ganha(s, "RUBRICAS");
+            return ["Todo o dinheiro ficou carimbado por área. O planejamento é sólido no papel, mas a única margem que sobrou é a reserva técnica."]; } }
+      ]
+    },
+
+    /* ===== P2 ===== */
+    {
+      titulo: "Como contratar as obras e compras?",
+      contexto: [
+        "Escola pública não pode simplesmente escolher um fornecedor: precisa seguir a Lei de Licitações (Lei 14.133/2021). Como o município está em estado de calamidade, a lei permite a contratação direta por dispensa emergencial (art. 75, VIII), desde que a urgência seja justificada e haja pesquisa de preços.",
+        "O problema é que, depois da enchente, centenas de prédios estão em obra ao mesmo tempo: faltam pedreiros e eletricistas, e os preços de material de construção subiram na região."
+      ],
+      notas: s => {
+        const n = ["O valor que vocês comprometeram na Pergunta 1 é de " + brl(s.comprometido) + ". Os percentuais abaixo incidem sobre ele."];
+        if (s.p1 === "A") n.push("Sua obra é grande e de engenharia: quem fizer o serviço precisa de responsável técnico.");
+        if (s.p1 === "B") n.push("Vocês prometeram reabrir em 6 semanas. Qualquer atraso quebra essa promessa diante das famílias.");
+        if (tem(s, "APOIO")) n.push("Apoio da comunidade: 40 pais se ofereceram para trabalhar como voluntários nos fins de semana.");
+        if (tem(s, "RUBRICAS")) n.push("Rubricas travadas: qualquer custo extra sai da reserva técnica (" + brl(s.saldo) + "). Se ela não bastar, será preciso cortar escopo.");
+        return n;
+      },
+      pergunta: "Qual forma de contratação a equipe adota?",
+      opcoes: [
+        { letra: "A", titulo: "Dispensa emergencial com 3 orçamentos",
+          texto: s => "Contratos assinados em 15 dias. Com o mercado aquecido, os preços ficam 12% acima do laudo (custo extra de " + brl(Math.round(s.comprometido * 0.12)) + ").",
+          aplicar: s => {
+            const extra = Math.round(s.comprometido * 0.12); const msgs = ["Os contratos saíram rápido, mas o mercado aquecido cobrou o preço: " + brl(extra) + " a mais."];
+            if (s.saldo >= extra) s.saldo -= extra;
+            else { const corte = extra - s.saldo; s.saldo = 0; s.apr -= 1; msgs.push("A reserva não bastou: foi preciso cortar " + brl(corte) + " do material de reforço escolar (Aprendizagem −1)."); }
+            ind(s, { apr: 1 }); ganha(s, "CONTRATO"); return msgs; } },
+        { letra: "B", titulo: "Licitação (pregão eletrônico e concorrência)",
+          texto: s => "A competição derruba os preços em 5% abaixo do laudo (economia de " + brl(Math.round(s.comprometido * 0.05)) + "), mas leva cerca de 75 dias até assinar os contratos.",
+          aplicar: s => {
+            const eco = Math.round(s.comprometido * 0.05); s.saldo += eco;
+            ind(s, { apr: s.p1 === "B" ? -3 : -2, conf: 2 }); ganha(s, "ATRASO");
+            const m = ["A competição baixou os preços e economizou " + brl(eco) + ", mas os contratos só foram assinados depois de 75 dias."];
+            if (s.p1 === "B") m.push("A promessa de reabrir em 6 semanas foi quebrada, e as famílias perceberam.");
+            return m; } },
+        { letra: "C", titulo: "Dispensa emergencial com empresas locais",
+          texto: s => "Priorizar empresas do município que também foram atingidas pela enchente. Contratos em 20 dias, preços 8% acima do laudo (custo extra de " + brl(Math.round(s.comprometido * 0.08)) + "). O dinheiro ajuda a reerguer a economia do bairro.",
+          aplicar: s => {
+            const extra = Math.round(s.comprometido * 0.08); const msgs = ["Empresas do próprio bairro foram contratadas e o dinheiro circulou na comunidade atingida. Custo extra: " + brl(extra) + "."];
+            if (s.saldo >= extra) s.saldo -= extra;
+            else { const corte = extra - s.saldo; s.saldo = 0; s.apr -= 1; msgs.push("O saldo não bastou: foi preciso cortar " + brl(corte) + " de material escolar (Aprendizagem −1)."); }
+            ind(s, { com: 2 }); ganha(s, "FORNECEDOR"); return msgs; } },
+        { letra: "D", titulo: "Mutirão comunitário",
+          texto: s => { const t = tem(s, "APOIO") ? 0.25 : 0.20;
+            return "Voluntários executam os serviços e a escola compra só o material. Economia de " + Math.round(t * 100) + "% sobre o laudo (" + brl(Math.round(s.comprometido * t)) + "), mas nenhuma empresa assina como responsável técnica pela obra."; },
+          aplicar: s => {
+            const t = tem(s, "APOIO") ? 0.25 : 0.20; const eco = Math.round(s.comprometido * t); s.saldo += eco;
+            ind(s, { inf: s.p1 === "A" ? -2 : -1, com: 2, conf: -2 }); ganha(s, "SEMRT");
+            const m = ["Os voluntários economizaram " + brl(eco) + ", mas ninguém assina tecnicamente pela obra."];
+            if (s.p1 === "A") m.push("Numa obra pesada de engenharia, o trabalho amador deixou falhas sérias.");
+            return m; } }
+      ]
+    },
+
+    /* ===== P3 ===== */
+    {
+      titulo: "O imprevisto",
+      contexto: [
+        "No meio da execução, uma nova chuva forte atinge a região. Na vistoria seguinte, o engenheiro da Secretaria encontra fissuras numa laje do bloco B, causadas pelo tempo que a estrutura ficou submersa.",
+        "O reforço estrutural custa R$ 28.000 e, sem ele, as duas salas daquele bloco não podem ser usadas. Nenhum desses valores estava no laudo original."
+      ],
+      notas: s => {
+        const n = [];
+        if (tem(s, "TELHADO")) n.push("Telhado provisório: a lona rasgou na chuva e molhou o mobiliário novo. Somam-se R$ 12.000 ao custo.");
+        if (tem(s, "SEMRT")) n.push("Sem responsável técnico: a Defesa Civil exige que a instalação elétrica feita pelos voluntários seja refeita por profissional habilitado, com ART. Somam-se R$ 15.000 ao custo.");
+        if (tem(s, "FORNECEDOR")) n.push("Fornecedor local: a empresa ficou sem capital de giro e atrasou a entrega em 30 dias. Isso custa Aprendizagem −1, qualquer que seja a escolha.");
+        if (tem(s, "ATRASO")) n.push("Atraso na obra: como já existe contrato licitado, o reforço pode entrar como aditivo contratual, sem nova contratação.");
+        if (tem(s, "RUBRICAS")) n.push("Rubricas travadas: remanejar recursos exige aprovação do Conselho Escolar e mais 20 dias.");
+        n.push("Custo total do imprevisto para a sua escola: " + brl(custoImprevisto(s)) + ".");
+        n.push("A confiança da comunidade (indicador Comunidade) está em " + s.com + ". Ela decide quanto uma campanha de doações consegue arrecadar.");
+        return n;
+      },
+      antes: s => { if (tem(s, "FORNECEDOR")) { s.apr -= 1; return ["O atraso do fornecedor local custou Aprendizagem −1."]; } return []; },
+      pergunta: "Como a equipe resolve o imprevisto?",
+      opcoes: [
+        { letra: "A", titulo: "Pagar tudo com o saldo",
+          texto: s => "Solução rápida: " + brl(custoImprevisto(s)) + " saem do saldo, mas a margem para as próximas decisões encolhe.",
+          disp: s => falta(custoImprevisto(s), s.saldo),
+          aplicar: s => { const c = custoImprevisto(s); s.saldo -= c; ind(s, { inf: tem(s, "ATRASO") ? 3 : 2 }); s.semRtCorrigido = true;
+            const m = ["O reforço foi feito sem atrasos, mas o saldo encolheu " + brl(c) + "."];
+            if (tem(s, "ATRASO")) m.push("O aditivo no contrato licitado evitou uma nova contratação e acelerou o serviço.");
+            return m; } },
+        { letra: "B", titulo: "Remanejar dentro do previsto",
+          texto: s => "Reduzir o padrão de acabamento e reaproveitar móveis e materiais recuperáveis, liberando até R$ 20.000. O restante (" + brl(Math.max(0, custoImprevisto(s) - 20000)) + ") sai do saldo.",
+          disp: s => falta(custoImprevisto(s), s.saldo + 20000),
+          aplicar: s => { const c = custoImprevisto(s); s.saldo += 20000 - c; ind(s, { inf: 1, apr: tem(s, "RUBRICAS") ? -2 : -1 }); s.semRtCorrigido = true;
+            const m = ["O problema foi resolvido abrindo mão de parte do acabamento e reaproveitando o que dava."];
+            if (tem(s, "RUBRICAS")) m.push("A aprovação do Conselho para remanejar as rubricas levou mais 20 dias.");
+            return m; } },
+        { letra: "C", titulo: "Buscar recursos externos",
+          texto: "Procurar empresas, fazer campanha de doações e pedir apoio a deputados (emenda parlamentar). Leva cerca de 45 dias, com a área isolada nesse período.",
+          disp: s => {
+            if (s.com <= 0) return "Com a confiança da comunidade em " + s.com + ", ninguém doa: a campanha não arrecadaria nada.";
+            if (s.com >= 3) return null;
+            return falta(custoImprevisto(s) - Math.round(custoImprevisto(s) / 2), s.saldo);
+          },
+          aplicar: s => { const c = custoImprevisto(s); let m;
+            if (s.com >= 3) m = ["A campanha mobilizou empresas e famílias e cobriu todo o custo (" + brl(c) + ")."];
+            else { const doado = Math.round(c / 2); s.saldo -= c - doado; m = ["A campanha arrecadou metade do valor (" + brl(doado) + "). O restante saiu do saldo."]; }
+            ind(s, { apr: -1, com: 1 }); s.semRtCorrigido = true; return m; } },
+        { letra: "D", titulo: "Isolar a área e adiar o reparo",
+          texto: "Interditar as 2 salas e organizar turnos alternados. O dinheiro fica preservado, mas o espaço da escola diminui.",
+          aplicar: s => { ind(s, { inf: -2, apr: -2 }); ganha(s, "AREA");
+            return ["Duas salas foram interditadas e as turmas passaram a revezar horários."]; } }
+      ]
+    },
+
+    /* ===== P4 ===== */
+    {
+      titulo: "Recuperar o prédio ou recuperar a aprendizagem?",
+      contexto: [
+        "Com a obra andando, a coordenação pedagógica aplica uma avaliação diagnóstica: 45% dos alunos do 5º ano estão abaixo do esperado em leitura, e os professores relatam meses de conteúdo perdido.",
+        "Ao mesmo tempo, o laboratório de informática (R$ 60.000) e a biblioteca (R$ 25.000) continuam destruídos. A Secretaria promete um programa estadual de reposição de computadores, mas sem data definida."
+      ],
+      notas: s => {
+        const n = [];
+        if (s.p1 === "B") n.push("Os alunos voltaram cedo e o diagnóstico foi feito antes: qualquer escolha aqui rende um pouco mais em aprendizagem.");
+        if (s.p1 === "D") n.push("A biblioteca já foi paga pela rubrica pedagógica, então o programa de recomposição sai bem mais barato.");
+        if (tem(s, "AREA")) n.push("Área interditada: o laboratório ficava no bloco B, que continua fechado.");
+        return n;
+      },
+      pergunta: "Onde a equipe investe para recuperar a aprendizagem?",
+      opcoes: [
+        { letra: "A", titulo: "Laboratório de informática novo",
+          texto: "20 computadores novos com rede e garantia. Custo: R$ 60.000.",
+          disp: s => tem(s, "AREA") ? "O laboratório ficava no bloco B, que está interditado." : falta(60000, s.saldo),
+          aplicar: s => { s.saldo -= 60000; ind(s, { inf: 1, apr: 2 + bonusP4(s) });
+            return ["O laboratório novo animou os alunos, mas sozinho não resolve a defasagem em leitura."]; } },
+        { letra: "B", titulo: "Laboratório com equipamentos recondicionados",
+          texto: "Computadores recondicionados por meio de parceria com programa de inclusão digital, com termo de doação formal e contrato de manutenção. Custo: R$ 18.000.",
+          disp: s => falta(18000, s.saldo),
+          aplicar: s => { s.saldo -= 18000; ind(s, { apr: 1 + bonusP4(s), com: 1 });
+            return ["Os computadores recondicionados funcionam, e a parceria aproximou a escola de outras instituições."]; } },
+        { letra: "C", titulo: "Programa de recomposição da aprendizagem",
+          texto: s => s.p1 === "D"
+            ? "Oficinas de reforço de leitura e matemática no contraturno, com material próprio. A biblioteca já está paga. Custo: R$ 5.000."
+            : "Recuperar a biblioteca (R$ 25.000) e montar oficinas de reforço de leitura e matemática no contraturno, com material próprio (R$ 5.000). Custo: R$ 30.000.",
+          disp: s => falta(s.p1 === "D" ? 5000 : 30000, s.saldo),
+          aplicar: s => { s.saldo -= s.p1 === "D" ? 5000 : 30000; ind(s, { apr: 3 + bonusP4(s) });
+            return ["Biblioteca funcionando e oficinas no contraturno: os índices de leitura começaram a subir."]; } },
+        { letra: "D", titulo: "Aguardar o programa estadual",
+          texto: "Não gastar agora e preservar o saldo, contando com a reposição prometida pelo governo.",
+          aplicar: s => { ind(s, { apr: -1 + bonusP4(s), com: -1 });
+            return ["O programa estadual ainda não tem data. Os alunos seguem sem laboratório e sem reforço."]; } }
+      ],
+      reflexao: "O programa de recomposição é o que mais melhora a aprendizagem e não deixa nenhum bem físico novo. Investimento é sempre sinônimo de equipamento?"
+    },
+
+    /* ===== P5 ===== */
+    {
+      titulo: "E as pessoas?",
+      contexto: [
+        "Dos 480 alunos, 60 não voltaram: muitas famílias estão em abrigos ou se mudaram para casas de parentes em outras cidades. Professores relatam crianças com medo quando chove, dificuldade de concentração e choro em sala. A equipe da escola também está esgotada.",
+        "Um detalhe importa: o repasse foi liberado para recuperar a escola, e gastos com serviços de saúde ou assistência podem ser questionados na prestação de contas se não forem autorizados antes."
+      ],
+      notas: s => {
+        const n = [];
+        if (tem(s, "AREA")) n.push("Área interditada: os turnos alternados pioraram a situação. Agora são 80 alunos fora da escola.");
+        if (tem(s, "APOIO")) n.push("Apoio da comunidade: pais voluntários já se organizaram para acolher as famílias e ajudar a encontrar os alunos.");
+        return n;
+      },
+      pergunta: "Como a equipe cuida das pessoas?",
+      opcoes: [
+        { letra: "A", titulo: "Contratar uma equipe psicossocial própria",
+          texto: "Um psicólogo e um assistente social por 6 meses, atendendo dentro da escola. Custo: R$ 30.000, sem autorização prévia do órgão repassador.",
+          disp: s => falta(30000, s.saldo),
+          aplicar: s => { s.saldo -= 30000; ind(s, { apr: 1, com: 2 }); ganha(s, "DESPESA");
+            return ["Os atendimentos ajudaram muito as crianças, mas o gasto não estava previsto na finalidade do repasse."]; } },
+        { letra: "B", titulo: "Busca ativa e rede pública",
+          texto: s => s.saldo >= 4000
+            ? "A escola localiza os alunos ausentes e encaminha os casos ao CRAS, à Unidade Básica de Saúde, ao CAPS e ao Conselho Tutelar. Custo: R$ 4.000 (transporte e materiais)."
+            : "A escola localiza os alunos ausentes e encaminha os casos ao CRAS, à Unidade Básica de Saúde, ao CAPS e ao Conselho Tutelar. Sem saldo para transporte, a equipe faz a busca a pé, sem custo, e alcança menos famílias.",
+          aplicar: s => {
+            const apr = 1 + (tem(s, "AREA") ? 1 : 0);
+            if (s.saldo >= 4000) { s.saldo -= 4000; ind(s, { apr, com: 1, conf: 1 });
+              return ["A busca ativa trouxe alunos de volta, e a rede pública assumiu os atendimentos."]; }
+            ind(s, { apr, conf: 1 });
+            return ["Sem dinheiro para transporte, a equipe fez a busca a pé. Alguns alunos voltaram, mas muitas famílias não foram alcançadas."]; } },
+        { letra: "C", titulo: "Kits para as famílias atingidas",
+          texto: "Material escolar, uniformes e auxílio-transporte para os alunos que perderam tudo. Custo: R$ 20.000.",
+          disp: s => falta(20000, s.saldo),
+          aplicar: s => { s.saldo -= 20000; ind(s, { apr: 1 + (tem(s, "AREA") ? 1 : 0), com: 2 });
+            return ["Os kits aliviaram as famílias e ajudaram a trazer alunos de volta às aulas."]; } },
+        { letra: "D", titulo: "Acolhimento com universidade e voluntários",
+          texto: "Parceria com uma universidade da região: estagiários supervisionados de Psicologia e Pedagogia conduzem rodas de conversa e atividades culturais. Custo: R$ 6.000.",
+          disp: s => falta(6000, s.saldo),
+          aplicar: s => { s.saldo -= 6000; ind(s, { apr: 1, com: tem(s, "APOIO") ? 2 : 1 });
+            const m = ["As rodas de conversa criaram um espaço de acolhimento com custo baixo."];
+            if (tem(s, "APOIO")) m.push("Com os pais voluntários ao lado, o projeto alcançou muito mais famílias.");
+            return m; } }
+      ]
+    },
+
+    /* ===== P6 ===== */
+    {
+      titulo: "Preparar a escola para a próxima enchente",
+      contexto: [
+        "Faltam 60 dias para o fim do prazo de execução da verba. A Defesa Civil classifica o terreno da escola como área de inundação recorrente: a pergunta não é se a água volta, mas quando.",
+        "Os históricos escolares e documentos da secretaria foram perdidos na enchente, e famílias ainda não conseguem tirar transferências. O que sobrar do saldo sem destino até o fim do prazo terá de ser explicado ao órgão repassador."
+      ],
+      notas: s => {
+        const n = [];
+        if (reforcoAuto(s)) n.push("Área interditada: a Defesa Civil exige o reforço estrutural antes de qualquer outro gasto. Os R$ 28.000 serão descontados automaticamente e as salas liberadas.");
+        if (areaPendente(s)) n.push("Área interditada: a Defesa Civil exige o reforço estrutural (R$ 28.000), mas não há saldo para ele. As obras desta rodada ficam bloqueadas e a infraestrutura piora.");
+        if (tem(s, "SEMRT")) n.push("Sem responsável técnico: obras de adaptação exigem contratar um engenheiro para projeto e ART (+R$ 5.000).");
+        n.push("Saldo disponível nesta rodada: " + brl(saldoP6(s)) + ". Se sobrarem mais de R$ 15.000 sem destino depois das obras, o grupo ganha o marcador Saldo parado.");
+        return n;
+      },
+      antes: s => {
+        if (reforcoAuto(s)) { s.saldo -= 28000; s.inf += 2; perde(s, "AREA"); return ["A Defesa Civil exigiu o reforço estrutural: R$ 28.000 pagos e as duas salas foram liberadas."]; }
+        if (areaPendente(s)) { s.inf -= 2; return ["Sem saldo para o reforço exigido pela Defesa Civil, as salas seguem interditadas."]; }
+        return [];
+      },
+      pergunta: "O que a equipe faz com o saldo restante?",
+      opcoes: [
+        { letra: "A", titulo: "Obras de adaptação à enchente",
+          texto: s => "Elevar o quadro de energia e as tomadas para 1,80 m, mover secretaria e arquivo para o pavimento superior e instalar comportas nas portas. Custo: " + brl(custoAdaptacao(s)) + ".",
+          disp: s => areaPendente(s) ? "Bloqueada: a Defesa Civil exige primeiro o reforço estrutural, e não há saldo para ele." : falta(custoAdaptacao(s), saldoP6(s)),
+          aplicar: s => { s.saldo -= custoAdaptacao(s); ind(s, { inf: 3 });
+            return ["A próxima cheia vai encontrar a parte elétrica e os documentos fora do alcance da água."].concat(verificaParado(s)); } },
+        { letra: "B", titulo: "Digitalização e plano de contingência",
+          texto: "Digitalizar o arquivo escolar com backup em nuvem, elaborar um plano de evacuação e fazer simulado com a Defesa Civil. Custo: R$ 9.000.",
+          disp: s => areaPendente(s) ? "Bloqueada: a Defesa Civil exige primeiro o reforço estrutural, e não há saldo para ele." : falta(9000, saldoP6(s)),
+          aplicar: s => { s.saldo -= 9000; ind(s, { inf: 1, conf: 2 });
+            return ["Os documentos estão a salvo e todos sabem o que fazer na próxima emergência."].concat(verificaParado(s)); } },
+        { letra: "C", titulo: "Guardar o saldo para manutenção futura",
+          texto: "Manter o dinheiro em conta, sem plano definido, para \u201co que precisar mais adiante\u201d.",
+          disp: s => saldoP6(s) <= 0 ? "Não há saldo para guardar." : null,
+          aplicar: s => { ind(s, { conf: -2 }); ganha(s, "PARADO");
+            return [brl(s.saldo) + " ficaram parados na conta, sem plano de uso, com o prazo vencendo."]; } },
+        { letra: "D", titulo: "Reprogramar ou devolver o saldo formalmente",
+          texto: "Enviar ao órgão repassador um pedido justificado para reprogramar o saldo ou devolvê-lo, encerrando a execução no prazo.",
+          aplicar: s => { const v = s.saldo; s.saldo = 0; ind(s, { conf: 2 });
+            return [v > 0 ? brl(v) + " foram formalmente reprogramados ou devolvidos, e a execução fechou dentro do prazo." : "Não havia saldo a devolver, mas a execução foi formalmente encerrada dentro do prazo."]; } }
+      ]
+    },
+
+    /* ===== P7 ===== */
+    {
+      titulo: "A prestação de contas",
+      contexto: [
+        "O prazo terminou. A Secretaria de Educação pede a prestação de contas, e o Tribunal de Contas do Estado incluiu a escola numa auditoria por amostragem.",
+        "Na mesma semana, o jornal da cidade publica uma denúncia anônima de \u201csuperfaturamento na obra da escola\u201d. O Conselho Escolar convoca uma reunião extraordinária. Cada marcador que vocês acumularam vira agora uma pendência que precisa ser explicada."
+      ],
+      notas: s => {
+        const p = M.pendencias(s), n = [];
+        p.graves.forEach(t => n.push("Pendência grave. " + t));
+        p.leves.forEach(t => n.push("Pendência leve. " + t));
+        if (!n.length) n.push("Nenhuma pendência: a gestão de vocês não deixou pontas soltas até aqui.");
+        return n;
+      },
+      pergunta: "Como a equipe presta contas?",
+      opcoes: [
+        { letra: "A", titulo: "Prestação de contas completa e pública",
+          texto: "Relatório com notas fiscais, orçamentos, atas e fotos de antes e depois, publicado no mural e nas redes da escola, mais uma audiência pública com a comunidade.",
+          aplicar: s => { const p = M.pendencias(s); ind(s, { conf: 3 - 3 * p.graves.length, com: 2 });
+            const m = ["A audiência pública lotou o auditório e os documentos responderam à denúncia do jornal."];
+            if (p.leves.length) m.push("As pendências leves foram esclarecidas com os documentos.");
+            if (p.graves.length) m.push("Mas a transparência também expôs as pendências graves, que continuam sem solução (Conformidade −3 para cada uma).");
+            return m; } },
+        { letra: "B", titulo: "Documentação mínima, só para o órgão",
+          texto: "Enviar os documentos exigidos à Secretaria e não comentar a denúncia publicamente.",
+          aplicar: s => { const p = M.pendencias(s); ind(s, { conf: 1 - p.leves.length - 3 * p.graves.length, com: -2 });
+            const m = ["Os papéis foram entregues, mas a denúncia segue circulando sem resposta."];
+            if (p.leves.length || p.graves.length) m.push("Nenhuma pendência foi esclarecida: cada leve custa Conformidade −1 e cada grave, −3.");
+            return m; } },
+        { letra: "C", titulo: "Contratar assessoria contábil e jurídica",
+          texto: "Especialistas organizam os documentos e preparam a defesa técnica dos pontos frágeis. Custo: R$ 8.000.",
+          disp: s => falta(8000, s.saldo),
+          aplicar: s => { const p = M.pendencias(s); s.saldo -= 8000; ind(s, { conf: 2 - p.graves.length });
+            const m = ["A assessoria organizou tudo e resolveu as pendências leves."];
+            if (p.graves.length) m.push("As pendências graves foram atenuadas, mas não desapareceram (Conformidade −1 para cada uma).");
+            return m; } },
+        { letra: "D", titulo: "Reconhecer as falhas e apresentar plano de correção",
+          texto: "Relatório completo que admite os erros e propõe a regularização de cada um: vistoria com ART retroativa, pedido de convalidação da despesa ou devolução de valores (R$ 6.000 por pendência grave).",
+          aplicar: s => { const p = M.pendencias(s); ind(s, { conf: 2, com: 1 }); const m = ["Reconhecer os erros publicamente teve um custo, mas abriu caminho para a regularização."];
+            p.graves.forEach(() => { if (s.saldo >= 6000) { s.saldo -= 6000; m.push("Uma pendência grave foi regularizada por R$ 6.000."); } else { s.conf -= 1; m.push("Uma pendência grave foi regularizada sem saldo, com desgaste para a gestão (Conformidade −1)."); } });
+            return m; } }
+      ],
+      reflexao: "A prestação pública é a melhor saída para quem fez tudo certo e a mais dura para quem tem pendências graves. Transparência não substitui uma boa gestão ao longo do caminho."
+    }
+  ];
+
+  /* ---------- Execução de uma decisão ---------- */
+  M.textoOpcao = (s, o) => typeof o.texto === "function" ? o.texto(s) : o.texto;
+  M.bloqueio = (s, o) => o.disp ? o.disp(s) : null;
+
+  M.decidir = (s, letra, justificativa) => {
+    const q = M.PERGUNTAS[s.qi];
+    const o = q.opcoes.find(x => x.letra === letra);
+    if (!o) throw new Error("Opção inexistente");
+    const motivo = M.bloqueio(s, o);
+    if (motivo) throw new Error("Opção bloqueada: " + motivo);
+    const antes = { saldo: s.saldo, inf: s.inf, apr: s.apr, com: s.com, conf: s.conf, marcadores: s.marcadores.slice() };
+    let msgs = q.antes ? q.antes(s) : [];
+    msgs = msgs.concat(o.aplicar(s));
+    const registro = {
+      n: s.qi + 1, titulo: q.titulo, letra, opcao: o.titulo, justificativa: justificativa || "", msgs,
+      deltas: { saldo: s.saldo - antes.saldo, inf: s.inf - antes.inf, apr: s.apr - antes.apr, com: s.com - antes.com, conf: s.conf - antes.conf },
+      novos: s.marcadores.filter(m => !antes.marcadores.includes(m)),
+      removidos: antes.marcadores.filter(m => !s.marcadores.includes(m)),
+      saldoDepois: s.saldo
+    };
+    s.historico.push(registro);
+    s.fase = "resultado";
+    return registro;
+  };
+
+  M.avancar = s => {
+    s.qi += 1;
+    s.fase = s.qi >= M.PERGUNTAS.length ? "final" : "pergunta";
+  };
+
+  /* ---------- Cenários finais ---------- */
+  M.FINAIS = {
+    reprovadas: { selo: "Cenário 1", titulo: "Contas reprovadas", mau: true,
+      texto: "O Tribunal de Contas rejeita as contas. A diretora responde a processo administrativo, a escola fica impedida de receber novos repasses até regularizar a situação e o que faltava da obra para." },
+    referencia: { selo: "Cenário 2", titulo: "Escola-referência em reconstrução",
+      texto: "Prédio seguro, alunos de volta, comunidade engajada e contas aprovadas. A Secretaria passa a usar a escola como modelo para outras unidades atingidas pela enchente." },
+    desequilibrada: { selo: "Cenário 3", titulo: "Reconstrução desequilibrada",
+      texto: "A escola voltou a funcionar, mas o indicador mais baixo revela o ponto fraco da gestão." },
+    incompleta: { selo: "Cenário 4", titulo: "Recuperação incompleta", mau: true,
+      texto: "O dinheiro acabou antes dos problemas. Parte da escola segue improvisada e a comunidade perdeu a confiança na gestão." }
+  };
+  M.VARIANTES = {
+    inf: ["Escola aberta, prédio frágil", "Os alunos voltaram, mas a próxima chuva forte pode fechar a escola de novo."],
+    apr: ["Prédio pronto, aprendizagem para trás", "A estrutura ficou boa, mas as turmas vão carregar a defasagem pelos próximos anos."],
+    com: ["Obra pronta, comunidade distante", "Tudo foi decidido de cima para baixo, e as famílias não se reconhecem na escola reconstruída."],
+    conf: ["Bom resultado, contas frágeis", "A escola melhorou, mas a gestão fica exposta a questionamentos por anos."]
+  };
+  M.resultadoFinal = s => {
+    const total = s.inf + s.apr + s.com + s.conf;
+    const vals = { inf: s.inf, apr: s.apr, com: s.com, conf: s.conf };
+    if (s.conf <= -2) return { chave: "reprovadas", total };
+    if (total >= 18 && Object.values(vals).every(v => v >= 2)) return { chave: "referencia", total };
+    if (total >= 10) {
+      let menor = "inf";
+      for (const k of ["apr", "com", "conf"]) if (vals[k] < vals[menor]) menor = k;
+      return { chave: "desequilibrada", variante: menor, total };
+    }
+    return { chave: "incompleta", total };
+  };
+
+  M.DEBATE = [
+    "Compare com um grupo que chegou a outro final. Em qual pergunta as trajetórias se separaram de verdade?",
+    "Qual decisão do grupo parecia econômica no momento e saiu cara depois?",
+    "Rapidez, legalidade e participação da comunidade: é possível maximizar as três ao mesmo tempo? Use a trajetória do grupo como exemplo."
+  ];
+
+  raiz.Motor = M;
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+
+<!-- ===================== INTERFACE ===================== -->
+<script>
+(function () {
+  "use strict";
+  const M = window.Motor;
+  const CHAVE = "reconstruir-para-ensinar-v1";
+  const app = document.getElementById("app");
+  const hud = document.getElementById("hud");
+  let estado = null;
+
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const sinal = v => v > 0 ? "+" + v : v < 0 ? "−" + Math.abs(v) : "0";
+  const sinalBrl = v => v > 0 ? "+" + M.brl(v) : M.brl(v);
+  const N = M.PERGUNTAS.length;
+
+  function salvar() { try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) {} }
+  function carregar() { try { const t = localStorage.getItem(CHAVE); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+  function apagar() { try { localStorage.removeItem(CHAVE); } catch (e) {} }
+
+  function nivel(frac) { document.documentElement.style.setProperty("--nivel", (Math.max(0, frac) * 24).toFixed(2) + "vh"); }
+
+  function topo() {
+    window.scrollTo(0, 0);
+    const h = app.querySelector("h1, h2");
+    if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+  }
+
+  /* ---------- Painel ---------- */
+  function desenharHud() {
+    if (!estado || estado.fase === "final") { hud.hidden = true; return; }
+    hud.hidden = false;
+    document.getElementById("hud-saldo").textContent = M.brl(estado.saldo);
+    document.getElementById("hud-inds").innerHTML = M.INDICADORES.map(([k, nome]) => {
+      const v = estado[k], w = Math.min(Math.abs(v), 10) * 5;
+      const barra = v === 0 ? "" : '<i style="' + (v > 0 ? "left:50%;background:#5DBB7E" : "right:50%;background:#E0705F") + ";width:" + w + '%"></i>';
+      return '<div class="ind">' + nome + "<b>" + sinal(v) + '</b><span class="barra">' + barra + "</span></div>";
+    }).join("");
+    const feitas = estado.historico.length;
+    document.getElementById("hud-prog").innerHTML = Array.from({ length: N }, (_, i) => '<i class="' + (i < feitas ? "ok" : "") + '"></i>').join("");
+    document.getElementById("hud-marcas").innerHTML = estado.marcadores.map(m =>
+      '<span class="chip" title="' + esc(M.MARCADORES[m].desc) + '">' + esc(M.MARCADORES[m].nome) + "</span>").join("");
+  }
+
+  /* ---------- Abertura ---------- */
+  const FACHADA = `
+<svg class="fachada" viewBox="0 0 640 290" role="img" aria-label="Fachada da escola com a marca da água a 1,6 metro de altura">
+  <rect x="0" y="0" width="640" height="290" fill="#D9E3E6"/>
+  <polygon points="58,112 320,46 582,112" fill="#5B6B70"/>
+  <rect x="80" y="110" width="480" height="160" fill="#C9D1CE" stroke="#1E2A30" stroke-width="3"/>
+  <rect x="226" y="122" width="188" height="26" fill="#1E2A30"/>
+  <text x="320" y="140" text-anchor="middle" font-family="Archivo, Arial Narrow, sans-serif" font-size="13" font-weight="700" fill="#F2B705" letter-spacing="1">ESCOLA VALE VERDE</text>
+  <g fill="#9FB4BB" stroke="#1E2A30" stroke-width="2">
+    <rect x="104" y="160" width="56" height="40"/><rect x="176" y="160" width="56" height="40"/>
+    <rect x="408" y="160" width="56" height="40"/><rect x="480" y="160" width="56" height="40"/>
+    <rect x="104" y="214" width="56" height="40"/><rect x="176" y="214" width="56" height="40"/>
+    <rect x="408" y="214" width="56" height="40"/><rect x="480" y="214" width="56" height="40"/>
+  </g>
+  <rect x="290" y="186" width="60" height="84" fill="#7B6A55" stroke="#1E2A30" stroke-width="2"/>
+  <path d="M0 214 Q40 206 80 214 T160 214 T240 214 T320 214 T400 214 T480 214 T560 214 T640 214 V290 H0Z" fill="#8A6B43" opacity=".88"/>
+  <line x1="0" y1="212" x2="640" y2="212" stroke="#1E2A30" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <rect x="568" y="186" width="58" height="22" rx="3" fill="#1E2A30"/>
+  <text x="597" y="202" text-anchor="middle" font-family="Archivo, Arial Narrow, sans-serif" font-size="13" font-weight="700" fill="#fff">1,6 m</text>
+</svg>`;
+
+  const LAUDO = [
+    ["Rede elétrica (risco de curto-circuito; obrigatória para reabrir)", 45000],
+    ["Telhado e calhas", 50000],
+    ["Paredes e pisos (umidade, mofo, reboco)", 40000],
+    ["Mobiliário escolar", 35000],
+    ["Cozinha da merenda", 18000],
+    ["Laboratório de informática (20 computadores + rede)", 60000],
+    ["Biblioteca e material didático", 25000]
+  ];
+
+  function telaAbertura() {
+    nivel(1);
+    hud.hidden = true;
+    const salvo = carregar();
+    const retomar = salvo && salvo.versao === 1 && salvo.fase !== "intro" ? `
+      <div class="retomar">
+        <p>Há uma partida em andamento${salvo.grupo ? " do grupo <strong>" + esc(salvo.grupo) + "</strong>" : ""}, na pergunta ${Math.min(salvo.qi + 1, N)} de ${N}.</p>
+        <button class="btn" id="continuar">Continuar partida</button>
+      </div>` : "";
+    app.innerHTML = `
+      <div class="folha">
+        ${retomar}
+        <p class="sub">Jogo de decisões em gestão pública</p>
+        <h1>Reconstruir para Ensinar</h1>
+        ${FACHADA}
+        <p>A Escola Estadual de Ensino Fundamental Vale Verde (escola fictícia), no Vale do Taquari, atende 480 alunos. Na enchente, a água chegou a 1,6 m dentro do prédio. Hoje as aulas acontecem em turno reduzido num ginásio emprestado pela prefeitura.</p>
+        <p>A escola recebeu um repasse emergencial de <strong>R$ 220.000</strong>, que precisa ser aplicado e ter as contas prestadas em até 12 meses. Vocês são a equipe gestora.</p>
+        <h3>O laudo de danos</h3>
+        <p>O conserto de tudo custa R$ 273.000. Faltam R$ 53.000: não dá para fazer tudo.</p>
+        <table>
+          <thead><tr><th>Item danificado</th><th class="num">Custo estimado</th></tr></thead>
+          <tbody>
+            ${LAUDO.map(([t, v]) => "<tr><td>" + t + '</td><td class="num">' + M.brl(v) + "</td></tr>").join("")}
+            <tr class="total"><td>Total</td><td class="num">${M.brl(273000)}</td></tr>
+          </tbody>
+        </table>
+        <h3>Como funciona</h3>
+        <p>São 7 decisões em sequência. Cada uma muda o saldo e quatro indicadores: <strong>Infraestrutura</strong>, <strong>Aprendizagem</strong>, <strong>Comunidade</strong> e <strong>Conformidade legal</strong>. Algumas escolhas deixam marcadores que mudam o contexto, os custos e as opções das perguntas seguintes.</p>
+        <p>Não existe resposta certa isolada: o resultado depende da combinação das escolhas. Antes de confirmar cada decisão, o grupo escreve a justificativa, que aparece no relatório final.</p>
+        <div class="campos">
+          <div><label for="grupo">Nome do grupo</label><input type="text" id="grupo" maxlength="60" autocomplete="off"></div>
+          <div><label for="membros">Integrantes (opcional)</label><input type="text" id="membros" maxlength="200" autocomplete="off"></div>
+        </div>
+        <div class="acoes"><button class="btn" id="comecar">${retomar ? "Começar nova partida" : "Começar"}</button></div>
+      </div>`;
+    if (retomar) document.getElementById("continuar").onclick = () => { estado = salvo; render(); };
+    document.getElementById("comecar").onclick = () => {
+      const g = document.getElementById("grupo").value.trim();
+      const m = document.getElementById("membros").value.trim();
+      if (!g) { document.getElementById("grupo").focus(); document.getElementById("grupo").setAttribute("aria-invalid", "true"); document.getElementById("grupo").placeholder = "Digite o nome do grupo para começar"; return; }
+      estado = M.novoEstado(g, m);
+      salvar(); render();
+    };
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Pergunta ---------- */
+  function telaPergunta() {
+    const s = estado, q = M.PERGUNTAS[s.qi];
+    nivel(1 - s.qi / N);
+    const notas = q.notas(s);
+    app.innerHTML = `
+      <div class="folha">
+        <p class="sub">Pergunta ${s.qi + 1} de ${N}</p>
+        <h2>${esc(q.titulo)}</h2>
+        <div class="contexto">${q.contexto.map(p => "<p>" + esc(p) + "</p>").join("")}</div>
+        ${notas.length ? '<div class="situacao"><h3>A situação da sua escola</h3><ul>' + notas.map(n => "<li>" + esc(n) + "</li>").join("") + "</ul></div>" : ""}
+        <fieldset>
+          <legend>${esc(q.pergunta)}</legend>
+          ${q.opcoes.map(o => {
+            const b = M.bloqueio(s, o);
+            return `<label class="opcao${b ? " bloq" : ""}">
+              <input type="radio" name="op" value="${o.letra}"${b ? " disabled" : ""}>
+              <span class="letra" aria-hidden="true">${o.letra}</span>
+              <span><strong>${esc(o.titulo)}</strong><span class="desc">${esc(M.textoOpcao(s, o))}</span>${b ? '<span class="motivo">' + esc(b) + "</span>" : ""}</span>
+            </label>`;
+          }).join("")}
+        </fieldset>
+        <div class="just">
+          <label for="just">Por que o grupo escolheu esta opção?</label>
+          <textarea id="just" rows="3" maxlength="800" placeholder="Escrevam 2 ou 3 linhas com o argumento do grupo."></textarea>
+          <p class="dica" id="dica" aria-live="polite"></p>
+        </div>
+        <div class="acoes"><button class="btn" id="confirmar" disabled>Confirmar decisão</button></div>
+      </div>`;
+    const just = document.getElementById("just"), btn = document.getElementById("confirmar"), dica = document.getElementById("dica");
+    const MIN = 20;
+    const checar = () => {
+      const op = app.querySelector("input[name=op]:checked");
+      const n = just.value.trim().length;
+      btn.disabled = !(op && n >= MIN);
+      dica.textContent = !op ? "Escolham uma opção e escrevam a justificativa para continuar."
+        : n < MIN ? "Faltam " + (MIN - n) + " caracteres na justificativa." : "Pronto para confirmar.";
+    };
+    app.querySelectorAll("input[name=op]").forEach(r => r.addEventListener("change", checar));
+    just.addEventListener("input", checar);
+    checar();
+    btn.onclick = () => {
+      const op = app.querySelector("input[name=op]:checked");
+      if (!op) return;
+      M.decidir(estado, op.value, just.value.trim());
+      salvar(); render();
+    };
+    topo();
+  }
+
+  /* ---------- Resultado de uma decisão ---------- */
+  function telaResultado() {
+    const s = estado, r = s.historico[s.historico.length - 1], q = M.PERGUNTAS[s.qi];
+    nivel(1 - (s.qi + 1) / N);
+    const d = r.deltas;
+    const itens = [];
+    if (d.saldo !== 0) itens.push(["Saldo", sinalBrl(d.saldo), d.saldo > 0]);
+    M.INDICADORES.forEach(([k, nome]) => { if (d[k] !== 0) itens.push([nome, sinal(d[k]), d[k] > 0]); });
+    const ultima = s.qi + 1 >= N;
+    app.innerHTML = `
+      <div class="folha">
+        <p class="sub">Resultado da pergunta ${r.n} de ${N}</p>
+        <h2>${r.letra}) ${esc(r.opcao)}</h2>
+        ${r.msgs.map(m => "<p>" + esc(m) + "</p>").join("")}
+        ${itens.length ? '<ul class="efeitos">' + itens.map(([n, v, pos]) => "<li>" + n + '<b class="' + (pos ? "pos" : "neg") + '">' + v + "</b></li>").join("") + "</ul>" : "<p>Os indicadores não mudaram nesta rodada.</p>"}
+        ${r.novos.length ? '<div class="novos"><h3>Novo marcador</h3>' + r.novos.map(m => '<p><span class="chip">' + esc(M.MARCADORES[m].nome) + "</span> " + esc(M.MARCADORES[m].desc) + "</p>").join("") + "</div>" : ""}
+        ${q.reflexao ? '<p class="reflexao">' + esc(q.reflexao) + "</p>" : ""}
+        <div class="acoes"><button class="btn" id="seguir">${ultima ? "Ver o resultado final" : "Ir para a pergunta " + (s.qi + 2)}</button></div>
+      </div>`;
+    document.getElementById("seguir").onclick = () => { M.avancar(estado); salvar(); render(); };
+    topo();
+  }
+
+  /* ---------- Final ---------- */
+  function telaFinal() {
+    const s = estado, f = M.resultadoFinal(s), E = M.FINAIS[f.chave];
+    nivel(0);
+    const variante = f.variante ? M.VARIANTES[f.variante] : null;
+    app.innerHTML = `
+      <div class="folha">
+        <p class="sub">${esc(s.grupo)}${s.membros ? ": " + esc(s.membros) : ""}</p>
+        <p><span class="selo${E.mau ? " mau" : ""}">${E.selo}</span></p>
+        <h1>${esc(variante ? variante[0] : E.titulo)}</h1>
+        ${variante ? "<p><strong>" + esc(E.titulo) + ".</strong> " + esc(E.texto) + "</p><p>" + esc(variante[1]) + "</p>" : "<p>" + esc(E.texto) + "</p>"}
+        <h3>Placar final</h3>
+        <table>
+          <tbody>
+            ${M.INDICADORES.map(([k, n]) => "<tr><td>" + n + '</td><td class="num ' + (s[k] >= 0 ? "pos" : "neg") + '">' + sinal(s[k]) + "</td></tr>").join("")}
+            <tr class="total"><td>Soma dos indicadores</td><td class="num">${sinal(f.total)}</td></tr>
+            <tr><td>Saldo no fim do prazo</td><td class="num">${M.brl(s.saldo)}</td></tr>
+          </tbody>
+        </table>
+        <p class="dica">Como o final é definido: Conformidade em −2 ou menos reprova as contas; soma de 18 ou mais, sem indicador abaixo de 2, gera a escola-referência; soma de 10 a 17 (ou 18+ com algum indicador abaixo de 2) gera uma reconstrução desequilibrada; abaixo de 10, recuperação incompleta.</p>
+        <h3>A trajetória do grupo</h3>
+        <ol class="trajeto">
+          ${s.historico.map(r => "<li><strong>" + esc(r.titulo) + (/[?!]$/.test(r.titulo) ? "" : ":") + "</strong> " + r.letra + ") " + esc(r.opcao) + (r.justificativa ? "<blockquote>" + esc(r.justificativa) + "</blockquote>" : "") + "</li>").join("")}
+        </ol>
+        ${s.marcadores.length ? "<h3>Marcadores acumulados</h3><p>" + s.marcadores.map(m => '<span class="chip" title="' + esc(M.MARCADORES[m].desc) + '">' + esc(M.MARCADORES[m].nome) + "</span>").join(" ") + "</p>" : ""}
+        <h3>Para debater</h3>
+        <ol>${M.DEBATE.map(t => "<li>" + esc(t) + "</li>").join("")}</ol>
+        <div class="acoes">
+          <button class="btn" id="imprimir">Imprimir ou salvar em PDF</button>
+          <button class="btn sec" id="denovo">Jogar de novo</button>
+        </div>
+      </div>`;
+    document.getElementById("imprimir").onclick = () => window.print();
+    document.getElementById("denovo").onclick = () => {
+      if (confirm("Começar uma nova partida? O resultado atual será apagado deste navegador.")) { apagar(); estado = null; render(); }
+    };
+    topo();
+  }
+
+  function render() {
+    desenharHud();
+    if (!estado) return telaAbertura();
+    if (estado.fase === "pergunta") return telaPergunta();
+    if (estado.fase === "resultado") return telaResultado();
+    if (estado.fase === "final") return telaFinal();
+    telaAbertura();
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
